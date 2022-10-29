@@ -1,13 +1,14 @@
 #include <xiao_sense.h>
+#include <LSM6DS3.h>
+#include <Arduino.h>
 
 #define BLENAME "MattSense"
 
 XiaoSense &xiao = XiaoSense::Instance();
 
-void setup() {
+void setup() 
+{
   Serial.begin(115200);
-  while (!Serial);
-    Serial.println("Hi!");
 
   while (!xiao.Setup(BLENAME))
   {

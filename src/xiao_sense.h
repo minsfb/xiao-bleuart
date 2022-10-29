@@ -1,7 +1,6 @@
 #ifndef __XIAO_SENSE_H__
 #define __XIAO_SENSE_H__
 
-#include <Arduino.h>
 #include <ArduinoBLE.h>
 #include <LSM6DS3.h>
 #include <HardwareBLESerial.h>
@@ -14,6 +13,8 @@ class XiaoSense
             static XiaoSense instance; // instantiated on first use, guaranteed to be destroyed
             return instance;
         }
+
+        LSM6DS3 myIMU;    //I2C device address 0x6A
 
         bool Setup(const char *name);
         bool Update();
@@ -30,14 +31,14 @@ class XiaoSense
         // IMU
         // https://github.com/Seeed-Studio/Seeed_Arduino_LSM6DS3/blob/master/LSM6DS3.cpp
         // by default: 416Hz sample, max 16G and 2000deg/s
-        LSM6DS3 myIMU = LSM6DS3(I2C_MODE, 0x6A);    //I2C device address 0x6A
+        // LSM6DS3 myIMU;    //I2C device address 0x6A
         float aX, aY, aZ, gX, gY, gZ;
         int imuUpdatePeriod = 10;
-        int nextImuReadTime;
+        unsigned nextImuReadTime;
 
         HardwareBLESerial &bleSerial = HardwareBLESerial::getInstance();
         int uartTxPeriod = 50;  // send uart updates every 50ms
-        int nextUartTime = 0;
+        unsigned nextUartTime = 0;
         char bleUartOutBuf[160];
 
         BLEService bleBatteryService = BLEService("180F");
@@ -46,7 +47,7 @@ class XiaoSense
         long previousMillis = 0;  // last time the battery level was checked, in ms
         int batTxPeriod = 1000; // send battery update every 200ms
         int batUpdatePeriod = 200;
-        int nextBatteryTime = 0;
+        unsigned nextBatteryTime = 0;
 
         bool SetupImu();
         bool UpdateImu();

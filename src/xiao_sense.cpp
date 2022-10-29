@@ -1,5 +1,5 @@
 #include "xiao_sense.h"
-// #include "serial_printf.h"
+#include "serial_printf.h"
 
 XiaoSense::XiaoSense()
 {
@@ -7,6 +7,7 @@ XiaoSense::XiaoSense()
 
 bool XiaoSense::Update()
 {
+    UpdateBattery();
     UpdateImu();
 
     if(IsConnected())
@@ -16,20 +17,23 @@ bool XiaoSense::Update()
         SendBattery();
     }
     
-    // if(Serial)
-    // {
-    //     Serial_printf(Serial, "IMU: %3f,%3f,%3f, %3f, %3f, %3f\tBAT: %d\%", aX, aY, aZ, gX, gY, gZ, batteryLevel);
-    // }
+    if(Serial)
+    {
+        Serial_printf(Serial, "\nIMU:\tx: %3f,\ty: %3f,\tz: %3f\pitch: %3f,\troll: %3f,\tyaw: %3f\tBAT: %d%%", aX, aY, aZ, gX, gY, gZ, batteryLevel);
+    }
 
     if(!IsConnected())
     {
         delay(50);  // this will low-power so we arent wasting cycles with no ble connected
     }
+
+    return true;
 }
 
 bool XiaoSense::SetupImu()
 {
-    return myIMU.begin() != 0;
+    myIMU = LSM6DS3(0u, 0x6A);
+    return myIMU.begin() == 0;
 }
 
 // this unrolls the HwBLE.beginAndSetupBLE, but adds battery and some other stuff
@@ -78,6 +82,8 @@ bool XiaoSense::SetupBattery()
 
   analogReference(AR_VDD);  //Vref=3.3V
   analogReadResolution(12); //12bits
+
+  return true;
 }
 
 bool XiaoSense::UpdateBattery()
@@ -93,6 +99,8 @@ bool XiaoSense::UpdateBattery()
   // if(abs(newLevel - batteryLevel) < 5) { return false; }
   
   batteryLevel = newLevel;
+
+  return true;
 }
 
 bool XiaoSense::SendUart()
@@ -100,9 +108,11 @@ bool XiaoSense::SendUart()
   if(nextUartTime > millis()) { return false; }
   nextUartTime = millis() + uartTxPeriod;
 
-  sprintf(bleUartOutBuf, "%f,%f,%f, %f, %f, %f\n", aX, aY, aZ, gX, gY, gZ);
+  sprintf(bleUartOutBuf, "%f,%f,%f,%f,%f,%f\n", aX, aY, aZ, gX, gY, gZ);
 
   bleSerial.print(bleUartOutBuf);
+
+  return true;
 }
 
 bool XiaoSense::SendBattery()
@@ -112,11 +122,39 @@ bool XiaoSense::SendBattery()
 
   UpdateBattery();
   batteryLevelChar.writeValue(batteryLevel); 
+  
+  return true;
 }
 
 bool XiaoSense::Setup(const char *name)
 {
-    return SetupBattery() && SetupImu() && SetupBLE(name);
+    bool batReady;
+    Serial.print("Initing battery... ");
+    do {
+        batReady = SetupBattery();
+        delay(1000);
+        Serial.println(batReady ? "ready." : "failed.");
+    } while(!batReady);
+
+    bool bleReady;
+    Serial.print( "Initing ble... ");
+    do {
+        bleReady = SetupBLE(name);
+        delay(1000);
+        Serial.println(bleReady ? "ready." : "failed.");
+    } while(!bleReady);
+
+    bool imuReady;
+    Serial.print( "Initing imu... ");
+    do {
+        imuReady = SetupImu();
+        delay(1000);
+        Serial.println(imuReady ? "ready." : "failed.");
+    } while(!imuReady);
+
+    Serial.println("Xiao init complete.");
+
+    return batReady && bleReady && imuReady;
 }
 
 bool XiaoSense::IsConnected()
